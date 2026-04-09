@@ -802,10 +802,10 @@ API_HASH = "5b1badf6d0f44c940a2263cef28d6689"
 
 # ⚠️ এখানে আপনার মেইন বট এবং ডামি বটগুলোর টোকেন কমা দিয়ে দিন
 MULTI_CLIENT_TOKENS = [
-    TOKEN, # মেইন বট
-    "8401364281:AAFvM3qv3vGXvCA5EUT30e43vnmTlevMHX4", 
-    
+    TOKEN,  
+
     # ডামি বট speedbost1_bot
+    
     "8703236011:AAEA3279_ak38POI_TAVK0b9tKZVe_0fBN8"  
     
     # ডামি বট speedbost2_bot
