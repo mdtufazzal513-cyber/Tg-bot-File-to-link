@@ -1,4 +1,6 @@
 pyTelegramBotAPI
 firebase-admin
 psutil
-Flask
+Pyrogram
+TgCrypto
+aiohttp
