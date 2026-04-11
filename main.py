@@ -13,7 +13,7 @@ from firebase_admin import db
 START_TIME = time.time()
 
 # ================= আপনার দেওয়া টোকেন ও এডমিন আইডি =================
-TOKEN = '8401364281:AAFvM3qv3vGXvCA5EUT30e43vnmTlevMHX4'
+TOKEN = '8490429007:AAEI08HnfXrgbnWUKA8VruiIOohfk8aZm6g'
 ADMIN_IDS =[6113272565, 8672231989,  7450191608] 
 
 bot = telebot.TeleBot(TOKEN)
