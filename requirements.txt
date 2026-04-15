@@ -1,7 +1,5 @@
-pyTelegramBotAPI
-firebase-admin
-psutil
-Pyrogram
-TgCrypto
+pyrogram
+tgcrypto
 aiohttp
-requests
+yt-dlp
+firebase-admin
