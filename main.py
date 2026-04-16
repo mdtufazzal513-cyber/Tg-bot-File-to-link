@@ -1,5 +1,10 @@
 import asyncio
 import re
+import logging
+import traceback
+
+# ====== Logging Setup (সমস্যা ধরার জন্য) ======
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # ====== Pyrogram & Python 3.10+ Event Loop Fix ======
 try:
@@ -32,25 +37,42 @@ async def admin_check(_, __, message: Message):
     return is_admin(message.from_user.id)
 admin_filter = filters.create(admin_check)
 
+
+# ==========================================
+# 0. Ping Test (ডাটাবেস ছাড়াই চেক করার জন্য)
+# ==========================================
+@app.on_message(filters.command("ping"))
+async def ping_cmd(client, message: Message):
+    print(f"📥 [TEST LOG] Ping command received from {message.from_user.id}")
+    await message.reply("🏓 **Pong!**\n\nYes, the bot is alive and receiving your messages properly!")
+
+
 # ==========================================
 # 1. Start Command & User Tracking
 # ==========================================
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(client, message: Message):
-    user_id = message.from_user.id
-    add_user(user_id) # ব্রডকাস্টের জন্য ডাটাবেসে সেভ
+    try:
+        print(f"📥[TEST LOG] Start command received from {message.from_user.id}")
+        user_id = message.from_user.id
+        add_user(user_id) # ব্রডকাস্টের জন্য ডাটাবেসে সেভ
+        print("✅ User saved to Firebase successfully.")
 
-    # প্রাইভেট মোড চেক (অ্যাডমিন ছাড়া অন্য কেউ ইউজ করতে পারবে না)
-    if get_bot_mode() == "private" and not is_admin(user_id):
-        return await message.reply("🛠 **Bot is currently under maintenance / Private Mode.**\nPlease try again later.")
+        # প্রাইভেট মোড চেক
+        if get_bot_mode() == "private" and not is_admin(user_id):
+            return await message.reply("🛠 **Bot is currently under maintenance / Private Mode.**\nPlease try again later.")
 
-    welcome_text = (
-        f"👋 Hello {message.from_user.first_name}!\n\n"
-        f"🎬 **Advanced Video Stream & Download Bot** 🚀\n\n"
-        f"Send me any direct video link or YouTube/Facebook link.\n"
-        f"I will provide you with a high-speed streaming and download link!"
-    )
-    await message.reply(welcome_text)
+        welcome_text = (
+            f"👋 Hello {message.from_user.first_name}!\n\n"
+            f"🎬 **Advanced Video Stream & Download Bot** 🚀\n\n"
+            f"Send me any direct video link or YouTube/Facebook link.\n"
+            f"I will provide you with a high-speed streaming and download link!"
+        )
+        await message.reply(welcome_text)
+    except Exception as e:
+        print("❌ [ERROR in START COMMAND]:")
+        traceback.print_exc()
+        await message.reply("❌ **Database Connection Error!** Please check Render logs.")
 
 
 # ==========================================
@@ -99,29 +121,23 @@ async def broadcast_cmd(client, message: Message):
 
     for user in users:
         try:
-            # রিপ্লাই করা মেসেজটি সবার কাছে ফরওয়ার্ড বা কপি করে পাঠানো
             sent_msg = await message.reply_to_message.copy(chat_id=int(user))
             broadcast_data[str(user)] = sent_msg.id
             success += 1
-            await asyncio.sleep(0.1) # FloodWait এড়ানোর জন্য
-        except (UserIsBlocked, InputUserDeactivated):
-            failed += 1
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
+            await asyncio.sleep(0.1) 
         except Exception:
             failed += 1
 
-    # রিভোক করার জন্য ডাটাবেসে সেভ
     save_broadcast_data(broadcast_data)
-    await status.edit_text(f"✅ **Broadcast Complete!**\n\nSuccess: {success}\nFailed: {failed}\n\n_Use /revokebroadcast to delete this message from users' inbox._")
+    await status.edit_text(f"✅ **Broadcast Complete!**\n\nSuccess: {success}\nFailed: {failed}\n\n_Use /revokebroadcast to delete this message._")
 
 @app.on_message(filters.command("revokebroadcast") & admin_filter)
 async def revoke_broadcast_cmd(client, message: Message):
     data = get_last_broadcast()
     if not data:
-        return await message.reply("❌ No active broadcast found to revoke.")
+        return await message.reply("❌ No active broadcast found.")
 
-    status = await message.reply("⏳ Revoking broadcast from users' inbox...")
+    status = await message.reply("⏳ Revoking broadcast...")
     deleted = 0
 
     for user_id, msg_id in data.items():
@@ -137,69 +153,39 @@ async def revoke_broadcast_cmd(client, message: Message):
 
 
 # ==========================================
-# 5. Expired Links Management (Admins Only)
-# ==========================================
-@app.on_message(filters.command("expired") & admin_filter)
-async def list_expired_cmd(client, message: Message):
-    expired_files = get_expired_files()
-    if not expired_files:
-        return await message.reply("✅ No expired links found. Everything is running smoothly!")
-
-    text = "⚠️ **List of Expired Links:**\n\n"
-    for file_id, data in expired_files.items():
-        text += f"📁 **File:** `{data.get('file_name')}`\n"
-        text += f"🆔 **ID:** `{file_id}`\n\n"
-    
-    text += "🔄 **To replace a link, use command:**\n`/updatelink <ID> <New_URL>`"
-    await message.reply(text)
-
-@app.on_message(filters.command("updatelink") & admin_filter)
-async def update_link_cmd(client, message: Message):
-    if len(message.command) < 3:
-        return await message.reply("❌ Usage: `/updatelink <ID> <New_URL>`")
-    
-    file_id = message.command[1]
-    new_url = message.command[2]
-    update_expired_link(file_id, new_url)
-    await message.reply(f"✅ Link updated successfully for ID: `{file_id}`")
-
-
-# ==========================================
 # 6. Link Processing & Auto-Delete Logic
 # ==========================================
 @app.on_message(filters.text & filters.private)
 async def handle_links(client, message: Message):
-    user_id = message.from_user.id
-
-    # প্রাইভেট মোড চেক
-    if get_bot_mode() == "private" and not is_admin(user_id):
-        return await message.reply("🛠 **Bot is in Private Mode.**", quote=True)
-
-    # টেক্সট থেকে লিংক (URL) বের করা
-    url_match = re.search(r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))", message.text)
-    
-    if not url_match:
-        # লিংক ছাড়া অন্য টেক্সট দিলে ১০ সেকেন্ড পর অটো-ডিলিট করে দিবে চ্যাট ক্লিন রাখার জন্য
-        msg = await message.reply("❌ Please send a valid Video Link.")
-        await asyncio.sleep(10)
-        await message.delete()
-        await msg.delete()
+    # Ping বা Start কমান্ড হলে ইগনোর করবে
+    if message.text.startswith("/"):
         return
 
-    url = url_match.group(0)
-
-    # লোডিং অ্যানিমেশন মেসেজ
-    status_msg = await message.reply("🔍 **Link detected!** Adding to processing queue...", quote=True)
-    
-    # টাস্ক কিউতে পাঠানো (worker.py এর মাধ্যমে)
-    await add_task_to_queue(url, status_msg, user_id)
-
-    # ইউজারের দেওয়া অরিজিনাল মেসেজটি ডিলিট করে দেওয়া (UI ক্লিন রাখার জন্য)
-    # (ফাইনাল রেজাল্ট status_msg তেই আপডেট হবে, যা worker.py হ্যান্ডেল করবে)
     try:
-        await message.delete()
-    except:
-        pass
+        user_id = message.from_user.id
+        if get_bot_mode() == "private" and not is_admin(user_id):
+            return await message.reply("🛠 **Bot is in Private Mode.**", quote=True)
+
+        url_match = re.search(r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))", message.text)
+        
+        if not url_match:
+            msg = await message.reply("❌ Please send a valid Video Link.")
+            await asyncio.sleep(10)
+            await message.delete()
+            await msg.delete()
+            return
+
+        url = url_match.group(0)
+        status_msg = await message.reply("🔍 **Link detected!** Adding to processing queue...", quote=True)
+        await add_task_to_queue(url, status_msg, user_id)
+
+        try:
+            await message.delete()
+        except:
+            pass
+    except Exception as e:
+        print("❌ [ERROR in LINK PROCESSING]:")
+        traceback.print_exc()
 
 
 # ==========================================
@@ -220,11 +206,8 @@ async def main():
     
     print("✅ All services are up and running smoothly!")
     await idle()
-    
-    # স্টপ করার সময়
     await app.stop()
 
 if __name__ == "__main__":
-    # Render বা যেকোনো হোস্টিংয়ে ইভেন্ট লুপ চালানোর নিয়ম
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
