@@ -11,7 +11,7 @@ API_HASH = os.environ.get("API_HASH", "5b1badf6d0f44c940a2263cef28d6689")
 # Bot Tokens & Load Balancing Config
 # ==========================================
 # মেইন বটের টোকেন (BotFather থেকে)
-MAIN_BOT_TOKEN = os.environ.get("MAIN_BOT_TOKEN", "8668849495:AAEIMm3hm3wU_c8Flx5odwg2J3ACl39Wo0o")
+MAIN_BOT_TOKEN = os.environ.get("MAIN_BOT_TOKEN", "8668849495:AAHN9Lka5xPqQ5uHsh-z8Fg5bT1h0nm65QI")
 
 # ডামি বটের টোকেনগুলো (কমা দিয়ে একাধিক টোকেন)
 dummy_tokens_str = os.environ.get("DUMMY_BOT_TOKENS", "8703236011:AAEA3279_ak38POI_TAVK0b9tKZVe_0fBN8,8430400718:AAHpjC4R07SrHCO-6-J8ZMT2P8LcMarpm8k,8711817641:AAGYG1DACABDKYgxxSPrSudm4BJnXcw999U")
