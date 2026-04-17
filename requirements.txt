@@ -1,5 +1,0 @@
-pyrogram
-tgcrypto
-aiohttp
-yt-dlp
-firebase-admin
